@@ -1,0 +1,4 @@
+public/avatar/*
+public/emoji/*
+dist/
+node_modules/
