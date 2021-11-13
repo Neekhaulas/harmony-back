@@ -77,7 +77,11 @@ app.use(cors({
     origin: '*',
 }));
 app.use(passport.initialize());
-app.use(express.static('public'))
+app.use(express.static('public'));
+
+app.get('/', (req: any, res: any) => {
+    res.status(200).json({});
+});
 
 app.post('/channels/:channel/messages', passport.authenticate('bearer', { session: false }), (req: any, res: any) => {
     // TODO: Check permissions for channel
