@@ -72,7 +72,7 @@ passport.use(new Strategy(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, inflate: true }));
 app.use(cors({
-    origin: 'http://localhost:4200',
+    origin: '*',
 }));
 app.use(passport.initialize());
 app.use(express.static('public'))
