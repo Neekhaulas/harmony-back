@@ -13,11 +13,13 @@ import bcrypt from 'bcrypt';
 const { simpleflake } = require('simpleflakes');
 const generateAvatar = require("github-like-avatar-generator");
 
+require('dotenv').config();
+
 const app = express();
 const goose = new Mongoose();
 const publisher = redis.createClient();
 
-goose.connect('mongodb://localhost:27017/harmony');
+goose.connect(process.env.MONGODB_HOST ?? '');
 
 const messageSchema = new Schema({
     id: { type: Schema.Types.String, default: () => simpleflake().toString(), index: true },
