@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import { URLSearchParams } from 'url';
 import fs from 'fs';
 import bcrypt from 'bcrypt';
+import morgan from 'morgan';
 const { simpleflake } = require('simpleflakes');
 const generateAvatar = require("github-like-avatar-generator");
 
@@ -71,13 +72,16 @@ passport.use(new Strategy(
     }
 ));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true, inflate: true }));
+app.use(express.json({
+    limit: '50mb',
+}));
+app.use(express.urlencoded({ limit: '50mb', extended: true, inflate: true }));
 app.use(cors({
     origin: '*',
 }));
 app.use(passport.initialize());
 app.use(express.static('public'));
+app.use(morgan(':method :url :status :response-time ms - :res[content-length]'));
 
 app.get('/', (req: any, res: any) => {
     res.status(200).json({});
