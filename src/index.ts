@@ -145,19 +145,17 @@ app.post('/servers/:server/channels', passport.authenticate('bearer', { session:
 });
 
 app.get('/servers/:server', passport.authenticate('bearer', { session: false }), (req: any, res: any) => {
-    ServerModel.findOne({ id: req.params.server }).populate({ path: 'channels' }).then(async (result) => {
-        let emojis = await EmojiModel.find({ server: req.params.server });
+    ServerModel.findOne({ id: req.params.server }).populate({ path: 'channels' }).then((result) => {
         if (result !== null) {
-            res.status(200).json({
-                data: {
-                    id: req.params.server,
-                    type: 'server',
-                    attributes: {
-                        ...result,
-                        emojis: emojis
+            EmojiModel.find({ server: req.params.server }).then((emojis => {
+                res.status(200).json({
+                    data: {
+                        id: req.params.server,
+                        type: 'server',
+                        attributes: { ...result.toJSON(), emojis: emojis },
                     },
-                },
-            });
+                });
+            }));
         } else {
             res.status(404).json({ error: 'Not found' });
         }
