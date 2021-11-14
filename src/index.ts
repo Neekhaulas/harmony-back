@@ -182,7 +182,6 @@ app.post('/servers/:server/emojis', passport.authenticate('bearer', { session: f
 });
 
 app.post('/join/:server', passport.authenticate('bearer', { session: false }), (req: any, res: any) => {
-    console.log(req.user);
     ServerModel.findOne({ id: req.params.server }).then((result) => {
         UserModel.updateOne({ id: req.user.id }, { $push: { servers: [result._id] } }).then(() => {
             res.status(200).json(result);
@@ -213,7 +212,6 @@ app.post('/users', (req: any, res: any) => {
                 blocks: 6, // must be multiple of two
                 width: 100
             });
-            console.log(avatar.base64);
             let base64Image = avatar.base64.split(';base64,').pop();
             fs.writeFile(`./public/avatar/${result.id}.svg`, base64Image, { encoding: 'base64' }, function (err) {
                 console.log('File created');
