@@ -9,8 +9,9 @@ import cors from 'cors';
 import crypto from 'crypto';
 import { URLSearchParams } from 'url';
 import fs from 'fs';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import morgan from 'morgan';
+import aws, { SecretsManager } from 'aws-sdk';
 const { simpleflake } = require('simpleflakes');
 const generateAvatar = require("github-like-avatar-generator");
 
@@ -18,7 +19,17 @@ require('dotenv').config();
 
 const app = express();
 const goose = new Mongoose();
-const publisher = redis.createClient();
+const publisher = redis.createClient({
+    host: process.env.REDIS_HOST,
+});
+const s3 = new aws.S3({
+    accessKeyId: process.env.S3_KEY_ID ?? '',
+    secretAccessKey: process.env.S3_SECRET_KEY ?? '',
+    region: 'eu-central-1',
+    params: {
+        Bucket: 'neekhaulas-harmony'
+    },
+});
 
 goose.connect(process.env.MONGODB_HOST ?? '');
 
@@ -59,6 +70,7 @@ const UserModel = goose.model('User', userSchema);
 const emojiSchema = new Schema({
     id: { type: Schema.Types.String, default: () => simpleflake().toString(), index: true },
     name: Schema.Types.String,
+    animated: Schema.Types.Boolean,
 });
 const EmojiModel = goose.model('Emoji', emojiSchema);
 
@@ -76,9 +88,7 @@ app.use(express.json({
     limit: '50mb',
 }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, inflate: true }));
-app.use(cors({
-    origin: '*',
-}));
+app.use(cors());
 app.use(passport.initialize());
 app.use(express.static('public'));
 app.use(morgan(':method :url :status :response-time ms - :res[content-length]'));
@@ -99,6 +109,28 @@ app.post('/channels/:channel/messages', passport.authenticate('bearer', { sessio
         publisher.publish(`channel.${result.channel}`, JSON.stringify({ type: 'newMessage', data: result }));
         res.status(200).json(result);
     }).catch((error: any) => {
+        res.status(500).json({ error: error });
+    });
+});
+
+app.put('/channels/:channel/messages/:message', passport.authenticate('bearer', { session: false }), (req: any, res: any) => {
+    // TODO: Check permissions for message
+    MessageModel.findOneAndUpdate({ id: req.params.message }, { $set: { content: req.body.content, updated_at: new Date() } }, { new: true }).then((result: any) => {
+        publisher.publish(`channel.${result.channel}`, JSON.stringify({ type: 'updateMessage', data: result }));
+        res.status(200).json(result);
+    }).catch((error: any) => {
+        console.log(error);
+        res.status(500).json({ error: error });
+    });
+});
+
+app.delete('/channels/:channel/messages/:message', passport.authenticate('bearer', { session: false }), (req: any, res: any) => {
+    // TODO: Check permissions for message
+    MessageModel.deleteOne({ id: req.params.message }).then((result: any) => {
+        publisher.publish(`channel.${req.params.channel}`, JSON.stringify({ type: 'deleteMessage', data: req.params.message }));
+        res.status(200).json({});
+    }).catch((error: any) => {
+        console.log(error);
         res.status(500).json({ error: error });
     });
 });
@@ -171,9 +203,24 @@ app.post('/servers/:server/emojis', passport.authenticate('bearer', { session: f
     let newEmoji = new EmojiModel({
         name: req.body.name,
     });
+
     newEmoji.save().then((result: any) => {
-        fs.writeFile(`./public/emoji/${result.id}.png`, base64Image, { encoding: 'base64' }, function (err) {
-            console.log('File created');
+        let buf = Buffer.from(req.body.file.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+        let data = {
+            Key: result.id + '.png',
+            Body: buf,
+            ContentEncoding: 'base64',
+            ContentType: 'image/png',
+            Bucket: 'neekhaulas-harmony',
+            ACL: 'public-read',
+        };
+        s3.putObject(data, function (err: any, data: any) {
+            if (err) {
+                console.log(err);
+                console.log('Error uploading data: ', data);
+            } else {
+                console.log('successfully uploaded the image!');
+            }
         });
         res.status(200).json(result);
     });
@@ -189,12 +236,6 @@ app.post('/join/:server', passport.authenticate('bearer', { session: false }), (
     }).catch((error) => {
         res.status(500).json({ error: error });
     });
-    /* membership.save().then((result: any) => {
-        res.status(200).json(result);
-    }).catch((error: any) => {
-        console.log(error);
-        res.status(500).json({ error: error });
-    }); */
 });
 
 app.post('/users', (req: any, res: any) => {
@@ -206,14 +247,6 @@ app.post('/users', (req: any, res: any) => {
             guest: true,
         });
         user.save().then((result: any) => {
-            let avatar = generateAvatar({
-                blocks: 6, // must be multiple of two
-                width: 100
-            });
-            let base64Image = avatar.base64.split(';base64,').pop();
-            fs.writeFile(`./public/avatar/${result.id}.svg`, base64Image, { encoding: 'base64' }, function (err) {
-                console.log('File created');
-            });
             res.status(200).json({
                 name: result.name,
                 token: result.token,
@@ -318,19 +351,22 @@ app.post('/server', passport.authenticate('bearer', { session: false }), (req: a
 const server: Server = createServer(app);
 
 const wss = new WServer({
-    server, verifyClient: (info, done,) => {
+    verifyClient: (info, done,) => {
         let token = (new URLSearchParams(info.req.url?.split('/?')[1])).get('access_token');
         UserModel.findOne({ token }, (err: any, user: any) => {
             if (err) { return done(false, 500, err); }
             if (!user) { return done(false, 403, 'Forbidden'); }
             return done(true);
         });
-    }
+    },
+    port: 3000,
 });
 
 wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
     //connection is up, let's add a simple simple event
-    let subscriber = redis.createClient();
+    let subscriber = redis.createClient({
+        host: process.env.REDIS_HOST,
+    });
     let token = (new URLSearchParams(request.url?.split('/?')[1])).get('access_token');
     let channelSub: null | string = null;
     let serverSub: null | string = null;
@@ -366,8 +402,15 @@ wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
                     ws.send(JSON.stringify({ event: 'getMe', content: result }));
                 });
                 break;
+            case 'ping':
+                ws.send(JSON.stringify({ event: 'pong', content: 1 }));
+                break;
         }
     });
+});
+
+wss.on('error', (error: Error) => {
+    console.log(error);
 });
 
 //start our server

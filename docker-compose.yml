@@ -1,9 +1,25 @@
 services:
   db:
-    image: mongodb
+    image: mongo
     ports:
       - 27017:27017
+    networks:
+      - net
   redis:
     image: redis
     ports:
       - 6379:6379
+    networks:
+      - net
+  back:
+    build: .
+    environment:
+      - REDIS_HOST=redis
+      - MONGODB_HOST=mongodb://db/harmony?retryWrites=true&w=majority
+    ports:
+      - 8080:8080
+    networks:
+      - net
+
+networks:
+  net:
