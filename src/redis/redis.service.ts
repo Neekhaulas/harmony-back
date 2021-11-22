@@ -9,7 +9,6 @@ export class RedisService implements OnModuleInit {
     this.client = new RedisClient({
       host: process.env.REDIS_HOST,
     });
-    console.log("Started redis service");
   }
 
   getClient(): RedisClient {

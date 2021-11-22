@@ -82,7 +82,7 @@ export class ChatGateway
   }
 
   @SubscribeMessage("channel")
-  async handleMessage(client: SocketClient, data: any) {
+  async handleChannel(client: SocketClient, data: any) {
     data = parseInt(data);
     if (client.currentChannelSubscribed !== null) {
       client.subscriber.unsubscribe(`channel.${data}`);
@@ -93,5 +93,14 @@ export class ChatGateway
       event: "messages",
       data: messages,
     };
+  }
+
+  @SubscribeMessage("server")
+  async handleServer(client: SocketClient, data: any) {
+    data = parseInt(data);
+    if (client.currentServerSubscribed !== null) {
+      client.subscriber.unsubscribe(`server.${data}`);
+    }
+    client.subscriber.subscribe(`server.${data}`);
   }
 }

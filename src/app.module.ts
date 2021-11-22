@@ -18,6 +18,7 @@ import { RedisModule } from "./redis/redis.module";
 import { InvitesModule } from "./invites/invites.module";
 import { InvitesController } from "./invites/invites.controller";
 import { MembershipsModule } from "./memberships/memberships.module";
+import { EmojisModule } from './emojis/emojis.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MembershipsModule } from "./memberships/memberships.module";
     RedisModule,
     InvitesModule,
     MembershipsModule,
+    EmojisModule,
   ],
   controllers: [
     AppController,

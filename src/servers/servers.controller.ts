@@ -12,15 +12,19 @@ import { User } from "schemas/user.schema";
 import { ChannelDto } from "dto/channel.dto";
 import { ChannelsService } from "src/channels/channels.service";
 import { InvitesService } from "src/invites/invites.service";
+import { EmojiDto } from "dto/emoji.dto";
+import { EmojisService } from "src/emojis/emojis.service";
 
 @Controller("servers")
 export class ServersController {
   constructor(
     private readonly serversService: ServersService,
+    @Inject(forwardRef(() => ChannelsService))
     private readonly channelsService: ChannelsService,
     private readonly caslAbilityFactory: CaslAbilityFactory,
     @Inject(forwardRef(() => InvitesService))
-    private readonly invitesService: InvitesService
+    private readonly invitesService: InvitesService,
+    private readonly emojisService: EmojisService
   ) { }
 
   @UseGuards(JwtAuthGuard)
@@ -76,6 +80,23 @@ export class ServersController {
 
     if (ability.can(Action.Update, server)) {
       return this.channelsService.createChannel(createChannelDto, server._id);
+    } else {
+      throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/emojis")
+  async createEmoji(@Param("id", ParseIntPipe) id: number, @Body() createEmojiDto: EmojiDto, @Request() req) {
+    const server: Server = await this.serversService.get(id);
+    if (server === null) {
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
+    }
+    const user: User = req.user;
+    const ability = this.caslAbilityFactory.createForUser(user);
+
+    if (ability.can(Action.Update, server)) {
+      return this.emojisService.create(createEmojiDto.name, server._id, createEmojiDto.file);
     } else {
       throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);
     }

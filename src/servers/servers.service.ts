@@ -34,6 +34,14 @@ export class ServersService {
           as: "channels",
         },
       },
+      {
+        $lookup: {
+          from: "emojis",
+          localField: "_id",
+          foreignField: "server",
+          as: "emojis",
+        },
+      },
     ]);
     return server[0] ?? null;
   }
@@ -53,6 +61,6 @@ export class ServersService {
   }
 
   async deleteServer(id: number) {
-    return await this.serverModel.deleteOne({ _id: id });
+    return await this.serverModel.deleteOne({ id });
   }
 }
