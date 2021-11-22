@@ -43,7 +43,6 @@ export class ChatGateway
   }
 
   afterInit(server: any) {
-    console.log("Login to redis");
     this.redisClient = this.redis.getClient();
   }
 

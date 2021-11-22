@@ -14,6 +14,7 @@ import { ChannelsService } from "src/channels/channels.service";
 import { InvitesService } from "src/invites/invites.service";
 import { EmojiDto } from "dto/emoji.dto";
 import { EmojisService } from "src/emojis/emojis.service";
+import { MembershipsService } from "src/memberships/memberships.service";
 
 @Controller("servers")
 export class ServersController {
@@ -24,7 +25,8 @@ export class ServersController {
     private readonly caslAbilityFactory: CaslAbilityFactory,
     @Inject(forwardRef(() => InvitesService))
     private readonly invitesService: InvitesService,
-    private readonly emojisService: EmojisService
+    private readonly emojisService: EmojisService,
+    private readonly membershipsService: MembershipsService
   ) { }
 
   @UseGuards(JwtAuthGuard)
@@ -32,6 +34,7 @@ export class ServersController {
   async create(@Body() createServerDto: ServerDto, @Request() req) {
     const server = await this.serversService.createServer(createServerDto, req.user._id);
     this.invitesService.create(server._id, server._id.toString());
+    this.membershipsService.joinServer(req.user._id, server._id);
     return server;
   }
 

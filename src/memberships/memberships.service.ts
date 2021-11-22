@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Membership, MembershipDocument } from "schemas/membership.schema";
@@ -12,7 +12,6 @@ export class MembershipsService {
 
   async isInServer(user: number, server: number) {
     const membership = await this.membershipModel.findOne({ user, server });
-    console.log(membership);
     if (membership === null) {
       return false;
     }
@@ -61,6 +60,22 @@ export class MembershipsService {
       {
         $replaceRoot: {
           newRoot: "$server",
+        },
+      },
+      {
+        $lookup: {
+          from: "channels",
+          localField: "_id",
+          foreignField: "server",
+          as: "channels",
+        },
+      },
+      {
+        $lookup: {
+          from: "emojis",
+          localField: "_id",
+          foreignField: "server",
+          as: "emojis",
         },
       },
     ]);
