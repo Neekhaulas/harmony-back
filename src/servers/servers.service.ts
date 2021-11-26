@@ -63,4 +63,8 @@ export class ServersService {
   async deleteServer(id: number) {
     return await this.serverModel.deleteOne({ id });
   }
+
+  async update(id: number, data: any) {
+    return await this.serverModel.updateOne({ _id: id }, { $set: data });
+  }
 }

@@ -10,6 +10,7 @@ import {
 } from "@nestjs/websockets";
 import { RedisClient } from "redis";
 import { User } from "schemas/user.schema";
+import { ChannelsService } from "src/channels/channels.service";
 import { MembershipsService } from "src/memberships/memberships.service";
 import { MessagesService } from "src/messages/messages.service";
 import { RedisService } from "src/redis/redis.service";
@@ -31,6 +32,7 @@ export class ChatGateway
     private redis: RedisService,
     private jwtService: JwtService,
     private serversService: ServersService,
+    private channelsService: ChannelsService,
     private usersService: UsersService,
     private messagesService: MessagesService,
     private membershipsService: MembershipsService
@@ -46,14 +48,38 @@ export class ChatGateway
     this.redisClient = this.redis.getClient();
   }
 
-  handleConnection(client: SocketClient, ...args: any[]) {
+  async handleConnection(client: SocketClient, ...args: any[]) {
     const token = (new URLSearchParams(args[0].url?.split("/?")[1])).get("access_token");
     const decoded = this.jwtService.decode(token);
     client.userId = decoded["id"];
     client.subscriber = this.redis.createClient();
     client.subscriber.on("message", (channel, message) => {
       const { event, data } = JSON.parse(message);
+      switch (event) {
+        case "SERVER_CREATE":
+          client.subscriber.subscribe(`server.${data._id}`);
+          data.channels.forEach((channel) => {
+            client.subscriber.subscribe(`channel.${channel._id}`);
+          });
+          break;
+
+        case "CHANNEL_CREATE":
+          client.subscriber.subscribe(`channel.${data._id}`);
+          break;
+      }
       client.send(JSON.stringify({ event, data }));
+    });
+    client.subscriber.subscribe(`user.${decoded["id"]}`);
+    client.subscriber.subscribe(`${decoded["id"]}`);
+
+    //Subscribe to all server/channels
+
+    const servers = await this.membershipsService.getUserMemberships(client.userId);
+    servers.forEach((server) => {
+      client.subscriber.subscribe(`server.${server._id}`);
+      server.channels.forEach((channel) => {
+        client.subscriber.subscribe(`channel.${channel._id}`);
+      });
     });
   }
 
@@ -87,10 +113,16 @@ export class ChatGateway
       client.subscriber.unsubscribe(`channel.${data}`);
     }
     client.subscriber.subscribe(`channel.${data}`);
+    const channel = await this.channelsService.get(data);
+    const users = await this.membershipsService.getServerUsers(channel.server);
     const messages = await this.messagesService.getByChannel(data);
     return {
-      event: "messages",
-      data: messages,
+      event: "channel",
+      data: {
+        channelId: data,
+        messages,
+        users,
+      },
     };
   }
 

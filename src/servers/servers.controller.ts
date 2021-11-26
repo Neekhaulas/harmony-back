@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, forwardRef, Get, HttpException, HttpStatus, Inject, Param, ParseIntPipe, Post, Request, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, forwardRef, Get, HttpException, HttpStatus, Inject, Param, ParseIntPipe, Post, Put, Request, Res, UseGuards } from "@nestjs/common";
 import { Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { ServerDto } from "dto/server.dto";
@@ -15,6 +15,7 @@ import { InvitesService } from "src/invites/invites.service";
 import { EmojiDto } from "dto/emoji.dto";
 import { EmojisService } from "src/emojis/emojis.service";
 import { MembershipsService } from "src/memberships/memberships.service";
+import { RedisService } from "src/redis/redis.service";
 
 @Controller("servers")
 export class ServersController {
@@ -26,16 +27,46 @@ export class ServersController {
     @Inject(forwardRef(() => InvitesService))
     private readonly invitesService: InvitesService,
     private readonly emojisService: EmojisService,
-    private readonly membershipsService: MembershipsService
+    private readonly membershipsService: MembershipsService,
+    private readonly redisService: RedisService
   ) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() createServerDto: ServerDto, @Request() req) {
-    const server = await this.serversService.createServer(createServerDto, req.user._id);
-    this.invitesService.create(server._id, server._id.toString());
-    this.membershipsService.joinServer(req.user._id, server._id);
+    let server = await this.serversService.createServer(createServerDto, req.user._id);
+    await this.invitesService.create(server._id, server._id.toString());
+    await this.membershipsService.joinServer(req.user._id, server._id);
+    await this.channelsService.createChannel({
+      name: "general",
+    }, server._id);
+    server = await this.serversService.get(server._id);
+    this.redisService.publish(`${req.user._id}`, "SUBSCRIBE_SERVER", server);
+    this.redisService.publish(`user.${req.user._id}`, "SERVER_CREATE", server);
     return server;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put(":id")
+  async update(@Body() updateServerDto: ServerDto, @Param("id", ParseIntPipe) id: number, @Request() req) {
+    const server = await this.serversService.get(id);
+    if (server === null) {
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
+    }
+
+    const user: User = req.user;
+    const ability = this.caslAbilityFactory.createForUser(user);
+    if (server === null) {
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
+    }
+
+    if (ability.can(Action.Delete, server)) {
+      const serverUpdated = this.serversService.update(server._id, updateServerDto);
+      this.redisService.publish(`server.${server._id}`, "SERVER_UPDATE", serverUpdated);
+      return serverUpdated;
+    } else {
+      throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);
+    }
   }
 
   @UseGuards(JwtAuthGuard)

@@ -20,4 +20,8 @@ export class RedisService implements OnModuleInit {
       host: process.env.REDIS_HOST,
     });
   }
+
+  publish(channel: string, event: string, data: any) {
+    return this.client.publish(channel, JSON.stringify({ event, data }));
+  }
 }

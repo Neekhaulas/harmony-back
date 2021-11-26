@@ -80,4 +80,40 @@ export class MembershipsService {
       },
     ]);
   }
+
+  async getServerUsers(server: number) {
+    const servers = await this.membershipModel.aggregate([
+      {
+        $match: {
+          server,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          user: { $arrayElemAt: ["$user", 0] },
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$user",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+        },
+      },
+    ]);
+    return servers;
+  }
 }

@@ -37,8 +37,15 @@ export class ChannelsController {
   @Post(":id/messages")
   async createMessage(@Body() createMessageDto: CreateMessageDto, @Param("id", ParseIntPipe) id: number, @Request() req) {
     const message = await this.messagesService.create(createMessageDto, id, req.user._id);
-    this.redisService.getClient().publish(`channel.${id}`, JSON.stringify({ event: "newMessage", data: message }));
+    this.redisService.publish(`channel.${id}`, "MESSAGE_CREATE", message);
     return message;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/messages")
+  async getMessages(@Param("id", ParseIntPipe) id: number) {
+    const messages = await this.messagesService.getByChannel(id);
+    return messages;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -52,7 +59,7 @@ export class ChannelsController {
     const ability = this.caslAbilityFactory.createForUser(user);
 
     if (ability.can(Action.Delete, message)) {
-      this.redisService.getClient().publish(`channel.${message.channel}`, JSON.stringify({ event: "deleteMessage", data: message._id }));
+      this.redisService.getClient().publish(`channel.${message.channel}`, JSON.stringify({ event: "MESSAGE_DELETE", data: { id: message._id, channel: message.channel } }));
       return this.messagesService.delete(message._id);
     } else {
       throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);
@@ -71,7 +78,7 @@ export class ChannelsController {
 
     if (ability.can(Action.Update, message)) {
       const updatedMessage = await this.messagesService.update(messageId, createMessageDto);
-      this.redisService.getClient().publish(`channel.${message.channel}`, JSON.stringify({ event: "updateMessage", data: updatedMessage }));
+      this.redisService.getClient().publish(`channel.${message.channel}`, JSON.stringify({ event: "MESSAGE_UPDATE", data: updatedMessage }));
       return updatedMessage;
     } else {
       throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);

@@ -25,7 +25,7 @@ export class ChannelsService {
       server,
     });
     this.serversService.get(server).then((result) => {
-      this.redisService.getClient().publish(`server.${result._id}`, JSON.stringify({ event: 'serverUpdate', data: result }));
+      this.redisService.getClient().publish(`server.${result._id}`, JSON.stringify({ event: 'CHANNEL_CREATE', data: newChannel }));
     });
     return newChannel;
   }
