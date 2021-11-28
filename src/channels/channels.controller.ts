@@ -7,6 +7,7 @@ import { Action, CaslAbilityFactory } from "src/casl/casl-ability.factory";
 import { MessagesService } from "src/messages/messages.service";
 import { RedisService } from "src/redis/redis.service";
 import { ChannelsService } from "./channels.service";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("channels")
 export class ChannelsController {
@@ -45,7 +46,7 @@ export class ChannelsController {
   @Get(":id/messages")
   async getMessages(@Param("id", ParseIntPipe) id: number) {
     const messages = await this.messagesService.getByChannel(id);
-    return messages;
+    return messages.reverse();
   }
 
   @UseGuards(JwtAuthGuard)

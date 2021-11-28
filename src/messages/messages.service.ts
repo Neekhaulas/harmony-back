@@ -16,7 +16,7 @@ export class MessagesService {
   }
 
   async getByChannel(channelId: number) {
-    return this.messageModel.find({ channel: channelId }).sort("_id").limit(50);
+    return this.messageModel.find({ channel: channelId }).sort("-_id").limit(50);
   }
 
   async get(id: number) {

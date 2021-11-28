@@ -18,7 +18,9 @@ import { RedisModule } from "./redis/redis.module";
 import { InvitesModule } from "./invites/invites.module";
 import { InvitesController } from "./invites/invites.controller";
 import { MembershipsModule } from "./memberships/memberships.module";
-import { EmojisModule } from './emojis/emojis.module';
+import { EmojisModule } from "./emojis/emojis.module";
+import { ThrottlerGuard } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 
 @Module({
   imports: [
@@ -52,6 +54,13 @@ import { EmojisModule } from './emojis/emojis.module';
     UsersController,
     InvitesController,
   ],
-  providers: [AppService, ChatGateway],
+  providers: [
+    AppService,
+    ChatGateway,
+    /* {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    }, */
+  ],
 })
-export class AppModule {}
+export class AppModule { }
