@@ -16,7 +16,7 @@ export class UsersService {
     return this.userModel.findOne({ email });
   }
 
-  async get(userId: number): Promise<User> {
+  async get(userId: string): Promise<User> {
     return this.userModel.findOne({ _id: userId });
   }
 

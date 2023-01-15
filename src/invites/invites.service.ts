@@ -35,7 +35,7 @@ export class InvitesService {
     return invites[0] ?? null;
   }
 
-  async create(server: number, code: string) {
+  async create(server: string, code: string) {
     return this.inviteModel.create({
       server,
       code,

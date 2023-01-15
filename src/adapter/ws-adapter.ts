@@ -17,11 +17,11 @@ export class WsAdapter implements WebSocketAdapter {
       port,
       ...options,
       verifyClient: (info, done) => {
-        const token = (new URLSearchParams(info.req.url?.split('/?')[1])).get('access_token');
+        /* const token = (new URLSearchParams(info.req.url?.split('/?')[1])).get('access_token');
         const decoded = this.jwtService.decode(token);
         if (decoded === null) {
           return done(false, 403, "Forbidden");
-        }
+        } */
         return done(true);
       },
     });

@@ -6,13 +6,13 @@ export type EmojiDocument = Emoji & Document;
 @Schema()
 export class Emoji {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
   name: string;
 
   @Prop()
-  server: number;
+  server: string;
 
   @Prop()
   animated: boolean;

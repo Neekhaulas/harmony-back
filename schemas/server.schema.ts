@@ -6,13 +6,13 @@ export type ServerDocument = Server & Document;
 @Schema()
 export class Server {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
   name: string;
 
   @Prop()
-  owner: number;
+  owner: string;
 
   @Prop()
   image: string;

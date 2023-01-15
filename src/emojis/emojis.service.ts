@@ -22,7 +22,7 @@ export class EmojisService {
     });
   }
 
-  async create(name: string, server: number, emojiData: string) {
+  async create(name: string, server: string, emojiData: string) {
     const emoji = await this.emojiModel.create({
       name,
       server,

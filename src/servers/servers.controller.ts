@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, forwardRef, Get, HttpException, HttpStatus, Inject, Param, ParseIntPipe, Post, Put, Request, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, forwardRef, Get, HttpException, HttpStatus, Inject, Param, Patch, Post, Put, Request, Res, UseGuards } from "@nestjs/common";
 import { Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { ServerDto } from "dto/server.dto";
@@ -47,8 +47,8 @@ export class ServersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Put(":id")
-  async update(@Body() updateServerDto: ServerDto, @Param("id", ParseIntPipe) id: number, @Request() req) {
+  @Patch(":id")
+  async update(@Body() updateServerDto: ServerDto, @Param("id") id: string, @Request() req) {
     const server = await this.serversService.get(id);
     if (server === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -61,7 +61,7 @@ export class ServersController {
     }
 
     if (ability.can(Action.Delete, server)) {
-      const serverUpdated = this.serversService.update(server._id, updateServerDto);
+      const serverUpdated = await this.serversService.update(server._id, updateServerDto);
       this.redisService.publish(`server.${server._id}`, "SERVER_UPDATE", serverUpdated);
       return serverUpdated;
     } else {
@@ -71,7 +71,7 @@ export class ServersController {
 
   @UseGuards(JwtAuthGuard)
   @Get(":id")
-  async get(@Param("id", ParseIntPipe) id: number) {
+  async get(@Param("id") id: string) {
     const server: Server = await this.serversService.get(id);
     if (server === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -87,7 +87,7 @@ export class ServersController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
-  async delete(@Param("id") id: number, @Request() req) {
+  async delete(@Param("id") id: string, @Request() req) {
     const server: Server = await this.serversService.get(id);
     if (server === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -103,8 +103,25 @@ export class ServersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch(":id")
+  async patch(@Body() pactchServerDto: ServerDto, @Param("id") id: string, @Request() req) {
+    const server: Server = await this.serversService.get(id);
+    if (server === null) {
+      throw new HttpException("Not found", HttpStatus.NOT_FOUND);
+    }
+    const user: User = req.user;
+    const ability = this.caslAbilityFactory.createForUser(user);
+
+    if (ability.can(Action.Manage, server)) {
+      return this.serversService.update(server._id, pactchServerDto);
+    } else {
+      throw new HttpException("Forbidden", HttpStatus.FORBIDDEN);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(":id/channels")
-  async createChannel(@Param("id", ParseIntPipe) id: number, @Body() createChannelDto: ChannelDto, @Request() req) {
+  async createChannel(@Param("id") id: string, @Body() createChannelDto: ChannelDto, @Request() req) {
     const server: Server = await this.serversService.get(id);
     if (server === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -121,7 +138,7 @@ export class ServersController {
 
   @UseGuards(JwtAuthGuard)
   @Post(":id/emojis")
-  async createEmoji(@Param("id", ParseIntPipe) id: number, @Body() createEmojiDto: EmojiDto, @Request() req) {
+  async createEmoji(@Param("id") id: string, @Body() createEmojiDto: EmojiDto, @Request() req) {
     const server: Server = await this.serversService.get(id);
     if (server === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);

@@ -10,7 +10,7 @@ export class MembershipsService {
     private readonly membershipModel: Model<MembershipDocument>
   ) { }
 
-  async isInServer(user: number, server: number) {
+  async isInServer(user: string, server: string) {
     const membership = await this.membershipModel.findOne({ user, server });
     if (membership === null) {
       return false;
@@ -18,7 +18,7 @@ export class MembershipsService {
     return true;
   }
 
-  async joinServer(user: number, server: number) {
+  async joinServer(user: string, server: string) {
     const isInServer = await this.isInServer(user, server);
     if (isInServer) {
       return false;
@@ -29,14 +29,14 @@ export class MembershipsService {
     });
   }
 
-  async leaveServer(user: number, server: number) {
+  async leaveServer(user: string, server: string): Promise<any> {
     return this.membershipModel.deleteOne({
       user,
       server,
     });
   }
 
-  async getUserMemberships(user: number) {
+  async getUserMemberships(user: string) {
     return this.membershipModel.aggregate([
       {
         $match: {
@@ -81,7 +81,7 @@ export class MembershipsService {
     ]);
   }
 
-  async getServerUsers(server: number) {
+  async getServerUsers(server: string) {
     const servers = await this.membershipModel.aggregate([
       {
         $match: {

@@ -19,13 +19,14 @@ import { UsersService } from "src/users/users.service";
 import { Server, WebSocket } from "ws";
 
 class SocketClient extends WebSocket {
-  userId: number;
+  waitingForAuthentication: boolean;
+  userId: string;
   subscriber: RedisClient;
   currentChannelSubscribed: number | null;
   currentServerSubscribed: number | null;
 }
 
-@WebSocketGateway(3000)
+@WebSocketGateway(9000)
 export class ChatGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   constructor(
@@ -49,9 +50,10 @@ export class ChatGateway
   }
 
   async handleConnection(client: SocketClient, ...args: any[]) {
-    const token = (new URLSearchParams(args[0].url?.split("/?")[1])).get("access_token");
-    const decoded = this.jwtService.decode(token);
-    client.userId = decoded["id"];
+    client.waitingForAuthentication = true;
+  }
+
+  async registerEventHandlers(client: SocketClient) {
     client.subscriber = this.redis.createClient();
     client.subscriber.on("message", (channel, message) => {
       const { event, data } = JSON.parse(message);
@@ -69,8 +71,8 @@ export class ChatGateway
       }
       client.send(JSON.stringify({ event, data }));
     });
-    client.subscriber.subscribe(`user.${decoded["id"]}`);
-    client.subscriber.subscribe(`${decoded["id"]}`);
+    client.subscriber.subscribe(`user.${client.userId}`);
+    client.subscriber.subscribe(`${client.userId}`);
 
     //Subscribe to all server/channels
 
@@ -86,17 +88,28 @@ export class ChatGateway
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage("me")
-  async handleMe(client: SocketClient, payload: any) {
-    const user: User = await this.usersService.get(client.userId);
-    const servers = await this.membershipsService.getUserMemberships(client.userId);
-    return {
-      event: "me",
-      data: {
-        user,
-        servers,
-      },
-    };
+  @SubscribeMessage("AUTHENTICATE")
+  async authenticate(client: SocketClient, payload: any) {
+    if (client.waitingForAuthentication) {
+      try {
+        const decoded = this.jwtService.decode(payload);
+        client.userId = decoded["id"];
+        client.waitingForAuthentication = false;
+
+        const user: User = await this.usersService.get(client.userId);
+        const servers = await this.membershipsService.getUserMemberships(client.userId);
+        return {
+          event: "READY",
+          data: {
+            user,
+            servers,
+          },
+        };
+      } catch (error) {
+        client.close();
+      }
+    }
+    //this.registerEventHandlers(client);
   }
 
   @SubscribeMessage("ping")
@@ -114,14 +127,12 @@ export class ChatGateway
     }
     client.subscriber.subscribe(`channel.${data}`);
     const channel = await this.channelsService.get(data);
-    const users = await this.membershipsService.getServerUsers(channel.server);
     const messages = await this.messagesService.getByChannel(data);
     return {
       event: "channel",
       data: {
         channelId: data,
         messages,
-        users,
       },
     };
   }
@@ -133,5 +144,18 @@ export class ChatGateway
       client.subscriber.unsubscribe(`server.${data}`);
     }
     client.subscriber.subscribe(`server.${data}`);
+  }
+
+  @SubscribeMessage("presence")
+  async handlePresence(client: SocketClient, data: any) {
+    client.subscriber.subscribe(`presence.${data}`);
+    const users = await this.membershipsService.getServerUsers(data);
+    return {
+      event: "PRESENCE",
+      data: {
+        server: data,
+        presences: users,
+      },
+    };
   }
 }

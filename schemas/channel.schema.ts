@@ -6,13 +6,13 @@ export type ChannelDocument = Channel & Document;
 @Schema()
 export class Channel {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
   name: string;
 
   @Prop()
-  server: number;
+  server: string;
 }
 
 export const ChannelSchema = SchemaFactory.createForClass(Channel);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Param, ParseIntPipe, Post, UsePipes, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post} from "@nestjs/common";
 import { GuestDto } from "dto/guest.dto";
 import { UserDto } from "dto/user.dto";
 import { UsersService } from "./users.service";
@@ -9,7 +9,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Get(":id")
-  async get(@Param("id", ParseIntPipe) id: number) {
+  async get(@Param("id") id: string) {
     const user = await this.usersService.get(id);
     if (user === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -21,11 +21,6 @@ export class UsersController {
         attributes: user,
       },
     };
-  }
-
-  @Post()
-  async create(@Body() createUserDto: UserDto) {
-    return await this.usersService.createUser(createUserDto);
   }
 
   @Post("guest")

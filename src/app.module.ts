@@ -10,7 +10,7 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CaslModule } from "./casl/casl.module";
 import { ChatGateway } from "./gateway/chat.gateway";
-import snowflakeId from "mongoose-snowflake-id";
+import snowflakeId from "../plugins/snowflake";
 import { JwtModule } from "@nestjs/jwt";
 import { ChannelsModule } from "./channels/channels.module";
 import { MessagesModule } from "./messages/messages.module";
@@ -29,7 +29,7 @@ import { APP_GUARD } from "@nestjs/core";
       connectionFactory: (connection: any) => {
         connection.plugin(snowflakeId, {
           field: "_id",
-          type: true,
+          type: false,
         });
         return connection;
       },

@@ -6,7 +6,7 @@ export type InviteDocument = Invite & Document;
 @Schema()
 export class Invite {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
   code: string;

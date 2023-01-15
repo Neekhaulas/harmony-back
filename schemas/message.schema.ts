@@ -11,16 +11,19 @@ export type MessageDocument = Message & Document;
 })
 export class Message {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
-  owner: number;
+  owner: string;
 
   @Prop()
-  channel: number;
+  channel: string;
 
   @Prop()
   content: string;
+
+  @Prop()
+  attachments: Array<any>;
 
   @Prop()
   createdAt: Date;

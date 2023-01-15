@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, ParseIntPipe, Post, Put, Request, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Post, Put, Request, UseGuards, Query, UseInterceptors, UploadedFiles } from "@nestjs/common";
 import { CreateMessageDto } from "dto/message.dto";
 import { Channel } from "schemas/channel.schema";
 import { User } from "schemas/user.schema";
@@ -8,6 +8,10 @@ import { MessagesService } from "src/messages/messages.service";
 import { RedisService } from "src/redis/redis.service";
 import { ChannelsService } from "./channels.service";
 import { Throttle } from "@nestjs/throttler";
+import { FilesInterceptor } from "@nestjs/platform-express";
+import * as multerS3 from "multer-s3";
+import { S3 } from "aws-sdk";
+import { simpleflake } from "simpleflakes";
 
 @Controller("channels")
 export class ChannelsController {
@@ -16,7 +20,7 @@ export class ChannelsController {
     private readonly messagesService: MessagesService,
     private readonly redisService: RedisService,
     private caslAbilityFactory: CaslAbilityFactory
-  ) { }
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get(":id")
@@ -36,22 +40,63 @@ export class ChannelsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(":id/messages")
-  async createMessage(@Body() createMessageDto: CreateMessageDto, @Param("id", ParseIntPipe) id: number, @Request() req) {
+  @UseInterceptors(
+    FilesInterceptor("files", 10, {
+      storage: multerS3({
+        s3: new S3({
+          accessKeyId: process.env.S3_KEY_ID ?? "",
+          secretAccessKey: process.env.S3_SECRET_KEY ?? "",
+          region: "eu-central-1",
+          params: {
+            Bucket: "neekhaulas-harmony",
+          },
+        }),
+        bucket: "neekhaulas-harmony",
+        acl: "public-read",
+        contentType: multerS3.AUTO_CONTENT_TYPE,
+        key: function (req: any, file, cb) {
+          cb(null, `${req.params.id}/${simpleflake().toString()}/${file.originalname}`);
+        },
+      }),
+    })
+  )
+  async createMessage(
+    @Body() createMessageDto: CreateMessageDto,
+    @Param("id") id: string,
+    @Request() req,
+    @UploadedFiles() files: Array<Express.MulterS3.File>
+  ) {
+    if (files.length > 0) {
+      createMessageDto.attachments = files.map((file) => {
+        return {
+          fileName: file.originalname,
+          url: file.location,
+          fileSizeBytes: file.size,
+        };
+      });
+    }
     const message = await this.messagesService.create(createMessageDto, id, req.user._id);
     this.redisService.publish(`channel.${id}`, "MESSAGE_CREATE", message);
     return message;
   }
 
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @Get(":id/messages")
-  async getMessages(@Param("id", ParseIntPipe) id: number) {
-    const messages = await this.messagesService.getByChannel(id);
+  async getMessages(@Param("id") id: string, @Query('before') before: string, @Query('after') after: string) {
+    let messages = [];
+    if (before !== undefined) {
+      messages = await this.messagesService.getByChannel(id, before);
+    } else if (after !== undefined) {
+      messages = await this.messagesService.getByChannel(id, null, after);
+    } else {
+      messages = await this.messagesService.getByChannel(id);
+    }
     return messages.reverse();
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(":channel/messages/:messageId")
-  async deleteMessage(@Param("messageId", ParseIntPipe) messageId: number, @Request() req) {
+  async deleteMessage(@Param("messageId") messageId: string, @Request() req): Promise<any> {
     const message = await this.messagesService.get(messageId);
     if (message === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);
@@ -69,7 +114,7 @@ export class ChannelsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(":channel/messages/:messageId")
-  async updateMessage(@Body() createMessageDto: CreateMessageDto, @Param("messageId", ParseIntPipe) messageId: number, @Request() req) {
+  async updateMessage(@Body() createMessageDto: CreateMessageDto, @Param("messageId") messageId: string, @Request() req) {
     const message = await this.messagesService.get(messageId);
     if (message === null) {
       throw new HttpException("Not found", HttpStatus.NOT_FOUND);

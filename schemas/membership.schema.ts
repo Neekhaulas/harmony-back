@@ -10,16 +10,16 @@ export type MembershipDocument = Membership & Document;
 })
 export class Membership {
   @Prop()
-  _id: number;
+  _id: string;
 
   @Prop()
-  user: number;
+  user: string;
 
   @Prop()
-  server: number;
+  server: string;
 
   @Prop()
-  roles: [number];
+  roles: [string];
 
   @Prop()
   joinedAt: Date;

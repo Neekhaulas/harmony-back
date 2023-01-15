@@ -19,7 +19,7 @@ export class ChannelsService {
     return this.channelModel.findOne({ _id: channelId });
   }
 
-  async createChannel(channelDto: ChannelDto, server: number): Promise<Channel> {
+  async createChannel(channelDto: ChannelDto, server: string): Promise<Channel> {
     const newChannel = await this.channelModel.create({
       ...channelDto,
       server,
